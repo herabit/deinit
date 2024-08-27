@@ -19,11 +19,11 @@ mod sealed {
 pub trait Uninit: sealed::Sealed {
     type Init: Init<Uninit = Self> + ?Sized;
 
-    /// Get an uninitialized slice of [`<Self::Init as Init>::Sized`]s.
+    /// Get an uninitialized slice of the underlying data.
     #[must_use]
     fn as_slice(&self) -> &[MaybeUninit<<Self::Init as Init>::Sized>];
 
-    /// Get an uninitialized mutable slice of [`<Self::Init as Init>::Sized`]s.
+    /// Get an uninitialized mutable slice of the underlying data.
     #[must_use]
     fn as_slice_mut(&mut self) -> &mut [MaybeUninit<<Self::Init as Init>::Sized>];
 
