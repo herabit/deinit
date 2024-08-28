@@ -333,7 +333,7 @@ pub trait Uninit: sealed::Sealed {
         for elem in guard.slice.iter_mut() {
             // SAFETY: The caller ensures that every call to `f` will result in a valid element,
             //         except for panics.
-            unsafe { f(elem) };
+            f(elem);
             guard.initialized += 1;
         }
 

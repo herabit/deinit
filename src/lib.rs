@@ -1,5 +1,4 @@
 #![no_std]
-#![allow(unused_unsafe)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -16,12 +15,11 @@ pub use uninit::Uninit;
 mod init;
 pub use init::Init;
 
-mod vec_impl;
-
-mod slice_vec;
-pub use slice_vec::SliceVec;
-
 pub mod error;
+
+pub mod slice;
+
+mod vec;
 
 /// Assert that a condition is always true, helping to hint to the optimizer.
 #[inline(always)]
