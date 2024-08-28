@@ -2,12 +2,12 @@ use core::{
     borrow::{Borrow, BorrowMut},
     fmt,
     hash::Hash,
-    mem::{self, ManuallyDrop, MaybeUninit},
+    mem::MaybeUninit,
     ops::{Deref, DerefMut},
     slice,
 };
 
-use crate::{error::TryReserveError, vec::VecImpl, Init, Owned, Uninit};
+use crate::{error::TryReserveError, vec::VecImpl};
 
 pub struct Vec<'a, T> {
     buf: &'a mut [MaybeUninit<T>],

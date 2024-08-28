@@ -1,4 +1,8 @@
-use core::{mem::MaybeUninit, ptr, slice};
+use core::{
+    mem::MaybeUninit,
+    ptr::{self, copy_nonoverlapping, drop_in_place},
+    slice,
+};
 
 use crate::{assert_unchecked, error::TryReserveError};
 
@@ -269,5 +273,97 @@ pub(crate) unsafe trait VecImpl {
     #[inline(always)]
     fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    #[inline(always)]
+    fn retain_mut<F: FnMut(&mut Self::Item) -> bool>(&mut self, mut f: F) {
+        let original_len = self.len();
+        unsafe { self.set_len(0) };
+
+        // Check the implementation of
+        // https://doc.rust-lang.org/std/vec/struct.Vec.html#method.retain
+        // for safety information.
+
+        struct BackshiftOnDrop<'a, V: VecImpl + ?Sized> {
+            v: &'a mut V,
+            processed_len: usize,
+            deleted_cnt: usize,
+            original_len: usize,
+        }
+
+        impl<'a, V: VecImpl + ?Sized> Drop for BackshiftOnDrop<'a, V> {
+            #[inline(always)]
+            fn drop(&mut self) {
+                if self.deleted_cnt > 0 {
+                    unsafe {
+                        let src = self.v.as_ptr().add(self.processed_len);
+                        let dst = self
+                            .v
+                            .as_ptr_mut()
+                            .add(self.processed_len - self.deleted_cnt);
+                        let len = self.original_len - self.processed_len;
+
+                        src.copy_to(dst, len);
+                    }
+                }
+
+                unsafe {
+                    self.v.set_len(self.original_len - self.deleted_cnt);
+                }
+            }
+        }
+
+        let mut g = BackshiftOnDrop {
+            v: self,
+            processed_len: 0,
+            deleted_cnt: 0,
+            original_len,
+        };
+
+        #[inline(always)]
+        fn process_loop<F, V, const DELETED: bool>(
+            original_len: usize,
+            f: &mut F,
+            g: &mut BackshiftOnDrop<V>,
+        ) where
+            V: VecImpl + ?Sized,
+            F: FnMut(&mut V::Item) -> bool,
+        {
+            while g.processed_len != original_len {
+                let cur = unsafe { &mut *g.v.as_ptr_mut().add(g.processed_len) };
+
+                if !f(cur) {
+                    g.processed_len += 1;
+                    g.deleted_cnt += 1;
+
+                    unsafe { ptr::drop_in_place(cur) };
+
+                    if DELETED {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                if DELETED {
+                    unsafe {
+                        let hole_slot = g.v.as_ptr_mut().add(g.processed_len - g.deleted_cnt);
+                        ptr::copy_nonoverlapping(cur, hole_slot, 1);
+                    }
+                }
+
+                g.processed_len += 1;
+            }
+        }
+
+        process_loop::<_, _, false>(original_len, &mut f, &mut g);
+        process_loop::<_, _, true>(original_len, &mut f, &mut g);
+
+        drop(g);
+    }
+
+    #[inline(always)]
+    fn retain<F: FnMut(&Self::Item) -> bool>(&mut self, mut f: F) {
+        self.retain_mut(move |item| f(item));
     }
 }
