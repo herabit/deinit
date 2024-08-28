@@ -4,7 +4,7 @@ use core::{
     slice,
 };
 
-use crate::Init;
+use crate::{Init, Owned};
 
 mod sealed {
     use core::mem::MaybeUninit;
@@ -39,6 +39,8 @@ pub trait Uninit: sealed::Sealed {
     ///
     /// # Safety
     ///
+    /// The caller must ensure:
+    ///
     /// - That `self` is in an initialized state.
     #[must_use]
     #[inline(always)]
@@ -59,6 +61,19 @@ pub trait Uninit: sealed::Sealed {
         unsafe { &mut *self.as_raw_mut() }
     }
 
+    /// Get an owned pointer to the [`Self::Init`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure:
+    ///
+    /// - That `self` is in an initialized state.
+    #[must_use]
+    #[inline(always)]
+    unsafe fn assume_init_owned(&mut self) -> Owned<'_, Self::Init> {
+        unsafe { Owned::new(self) }
+    }
+
     /// Drop a [`Self::Init`] in place.
     ///
     /// # Safety
@@ -69,7 +84,6 @@ pub trait Uninit: sealed::Sealed {
     ///
     /// - That the invariants of [`::core::ops::Drop`] for a given [`Self::Init`] or its
     ///   subfields, are upheld.
-    #[must_use]
     #[inline(always)]
     unsafe fn assume_init_drop(&mut self) {
         unsafe { ::core::ptr::drop_in_place(self.as_raw_mut()) }

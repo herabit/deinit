@@ -6,7 +6,7 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     mem::ManuallyDrop,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
     ptr::NonNull,
 };
@@ -462,6 +462,28 @@ impl<'a, F: 'a + ?Sized + Future + Unpin> Future for Owned<'a, F> {
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Self::Output> {
         F::poll(Pin::new(&mut *self), cx)
+    }
+}
+
+impl<'a, T, I> Index<I> for Owned<'a, T>
+where
+    T: 'a + ?Sized + Index<I>,
+{
+    type Output = T::Output;
+
+    #[inline(always)]
+    fn index(&self, index: I) -> &Self::Output {
+        self.deref().index(index)
+    }
+}
+
+impl<'a, T, I> IndexMut<I> for Owned<'a, T>
+where
+    T: 'a + ?Sized + IndexMut<I>,
+{
+    #[inline(always)]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        self.deref_mut().index_mut(index)
     }
 }
 
