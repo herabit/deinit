@@ -1,6 +1,6 @@
 use core::{
     mem::MaybeUninit,
-    ptr::{self, copy_nonoverlapping, drop_in_place},
+    ptr::{self},
     slice,
 };
 
@@ -36,11 +36,19 @@ pub(crate) unsafe trait VecImpl {
     /// Attempt to grow the internal buffer exactly.
     fn grow_exact(&mut self, additional: usize) -> Result<(), TryReserveError>;
 
+    /// Return a raw pointer to the start of the vector's buffer.
+    #[must_use]
+    fn as_ptr(&self) -> *const Self::Item;
+
+    /// Return a mutable raw pointer to the start of the vector's buffer.
+    #[must_use]
+    fn as_ptr_mut(&mut self) -> *mut Self::Item;
+
     /// Get the remaining uninitialized capacity of the vector.
     #[must_use]
     #[inline(always)]
     fn remaining(&self) -> usize {
-        unsafe { self.capacity().unchecked_sub(self.len()) }
+        self.capacity() - self.len()
     }
 
     /// Returns whether the internal buffer will need to grow
@@ -99,14 +107,6 @@ pub(crate) unsafe trait VecImpl {
         self.try_reserve_exact(additional).unwrap();
     }
 
-    /// Return a raw pointer to the start of the vector's buffer.
-    #[must_use]
-    fn as_ptr(&self) -> *const Self::Item;
-
-    /// Return a mutable raw pointer to the start of the vector's buffer.
-    #[must_use]
-    fn as_ptr_mut(&mut self) -> *mut Self::Item;
-
     /// Return a slice of the vector's entire buffer.
     #[must_use]
     #[inline(always)]
@@ -157,7 +157,7 @@ pub(crate) unsafe trait VecImpl {
         let cap = self.capacity();
 
         let ptr = unsafe { self.as_ptr().add(len) };
-        let len = unsafe { cap.unchecked_sub(len) };
+        let len = cap - len;
 
         unsafe { slice::from_raw_parts(ptr.cast(), len) }
     }
@@ -170,7 +170,7 @@ pub(crate) unsafe trait VecImpl {
         let cap = self.capacity();
 
         let ptr = unsafe { self.as_ptr_mut().add(len) };
-        let len = unsafe { cap.unchecked_sub(len) };
+        let len = cap - len;
 
         unsafe { slice::from_raw_parts_mut(ptr.cast(), len) }
     }
@@ -190,7 +190,7 @@ pub(crate) unsafe trait VecImpl {
             self.as_ptr_mut().add(len).write(item);
 
             // Increment the length.
-            self.set_len(len.unchecked_add(1));
+            self.set_len(len - 1);
         }
     }
 
@@ -229,7 +229,7 @@ pub(crate) unsafe trait VecImpl {
         debug_assert!(len > 0, "popping item will underflow");
 
         unsafe {
-            let len = len.unchecked_sub(1);
+            let len = len - 1;
             self.set_len(len);
 
             let item = self.as_ptr_mut().add(len).read();
@@ -259,10 +259,8 @@ pub(crate) unsafe trait VecImpl {
                 // Update the length before dropping the elements.
                 self.set_len(new_len);
 
-                let tail = ptr::slice_from_raw_parts_mut(
-                    self.as_ptr_mut().add(new_len),
-                    len.unchecked_sub(new_len),
-                );
+                let tail =
+                    ptr::slice_from_raw_parts_mut(self.as_ptr_mut().add(new_len), len - new_len);
 
                 tail.drop_in_place();
             }
@@ -296,14 +294,13 @@ pub(crate) unsafe trait VecImpl {
             fn drop(&mut self) {
                 if self.deleted_cnt > 0 {
                     unsafe {
-                        let src = self.v.as_ptr().add(self.processed_len);
-                        let dst = self
-                            .v
-                            .as_ptr_mut()
-                            .add(self.processed_len - self.deleted_cnt);
-                        let len = self.original_len - self.processed_len;
-
-                        src.copy_to(dst, len);
+                        ptr::copy(
+                            self.v.as_ptr().add(self.processed_len),
+                            self.v
+                                .as_ptr_mut()
+                                .add(self.processed_len - self.deleted_cnt),
+                            self.original_len - self.processed_len,
+                        );
                     }
                 }
 
