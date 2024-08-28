@@ -183,7 +183,7 @@ pub(crate) unsafe trait VecImpl {
 
         unsafe {
             // Write the item to the buffer.
-            self.as_ptr_mut().add(1).write(item);
+            self.as_ptr_mut().add(len).write(item);
 
             // Increment the length.
             self.set_len(len.unchecked_add(1));
@@ -226,9 +226,9 @@ pub(crate) unsafe trait VecImpl {
 
         unsafe {
             let len = len.unchecked_sub(1);
-            let item = self.as_ptr_mut().add(len).read();
-
             self.set_len(len);
+
+            let item = self.as_ptr_mut().add(len).read();
 
             item
         }
