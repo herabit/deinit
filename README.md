@@ -1,4 +1,4 @@
-# `::deinit`
+# `::lazily`
 
 > A collection of types and tools for delayed initialization of data.
 
@@ -11,11 +11,3 @@ However parts of the API seek to be closer to [tinyvec](https://github.com/Lokat
 collection types, or extensions to existing collection types, that allow for incremental initialization
 of their underlying data.
 
-
-## Crate Name
-
-I may change the name of this crate at some point in the future,
-as `deinit` may indicate that it seeks to provide mechanisms for the deinitialization of data. 
-
-While this is true, it is not all this crate does, and I think the current name is slightly
-misleading.
