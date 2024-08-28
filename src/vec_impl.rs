@@ -175,7 +175,7 @@ pub(crate) unsafe trait VecImpl {
     ///
     /// The caller must ensure that this will not overflow the buffer.
     #[inline(always)]
-    fn push_unchecked(&mut self, item: Self::Item) {
+    unsafe fn push_unchecked(&mut self, item: Self::Item) {
         let len = self.len();
         let cap = self.capacity();
 
